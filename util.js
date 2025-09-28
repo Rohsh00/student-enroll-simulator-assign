@@ -97,6 +97,54 @@ export function initRenderBarChart(
   return chartInstance;
 }
 
+//Render multiple checkBoxes by providing the array to this function
+const checkBoxesParentEl = document.getElementById("courseCheckBoxes");
+export const renderMultipleChecks = () => {
+  courseTypesData.forEach((el) => {
+    const checkContainer = document.createElement("div");
+    checkContainer.className = "form-check col-md-2";
+
+    const checkInput = document.createElement("input");
+    checkInput.type = "checkbox";
+    checkInput.classList.add("form-check-input");
+
+    for (let key in el) {
+      if (key !== "label" && key !== "class" && key !== "for") {
+        checkInput.setAttribute(key, el[key]);
+      }
+    }
+
+    const checkLable = document.createElement("label");
+    checkLable.textContent = el.id;
+    checkLable.classList.add("form-check-label");
+    checkLable.setAttribute("for", el.id);
+
+    checkContainer.appendChild(checkInput);
+    checkContainer.appendChild(checkLable);
+    checkBoxesParentEl.appendChild(checkContainer);
+  });
+};
+
 export const renderNoDataFound = (title) => {
   return `<h6>${title}</h6>`;
+};
+
+export const renderToaster = (
+  title,
+  position = "right",
+  toastType = "success"
+) => {
+  const toastify = Toastify({
+    text: title,
+    duration: 3000,
+    gravity: "top",
+    position,
+    backgroundColor:
+      toastType === "success"
+        ? "linear-gradient(to right, #00b09b, #96c93d)"
+        : "linear-gradient(to right, #ff5f6d, #ffc371)",
+    close: true,
+  }).showToast();
+
+  return toastify;
 };
