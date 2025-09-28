@@ -1,18 +1,21 @@
-import { checkboxesData } from "./data.js";
+import { courseTypesData } from "./data.js";
 import { courseLevelsData } from "./data.js";
-
-//insert and fetch localStorage Data
-function set_get_localStorageData(insertData, key = "unAssignStudentsData") {
-  if (insertData) {
-    localStorage.setItem(key, JSON.stringify(insertData));
-  }
-
-  const fetchedData = JSON.parse(localStorage.getItem(key)) || [];
-
-  return fetchedData;
-}
+import {
+  assignedCoursesCounting,
+  getNoOfCourses,
+  initRenderBarChart,
+  renderNoDataFound,
+  set_get_localStorageData,
+} from "./util.js";
 
 const checkBoxesParentEl = document.getElementById("courseCheckBoxes");
+const stuBarChartEle = document.getElementById("studentLvlChart");
+const studentCoursesChartEle = document.getElementById("studentCoursesChart");
+
+const courseLvlsChartLabels = courseLevelsData.map((el) => el.title);
+
+let stuLvlChartIns = null;
+let courselvlsChartIns = null;
 
 //Render multiple checkBoxes by providing the array to this function
 const renderMultipleChecks = (checkBoxArr) => {
@@ -41,7 +44,7 @@ const renderMultipleChecks = (checkBoxArr) => {
   });
 };
 
-renderMultipleChecks(checkboxesData);
+renderMultipleChecks(courseTypesData);
 
 //render list of unassigned students
 const unAssignStudentListEle = document.getElementById("unAssignStudentList");
@@ -52,10 +55,10 @@ function renderUnAssignStudentList(unStudent = []) {
   const studentUnAssigndata = unStudent.filter((st) => !st.assignedCourseID);
 
   if (!studentUnAssigndata.length) {
-    unAssignStudentListEle.innerHTML = `<h6>No Data Found</h6>`;
+    unAssignStudentListEle.innerHTML = renderNoDataFound("No Data Found!");
   }
 
-  const olEle = document.createElement("ul");
+  const ulEle = document.createElement("ul");
 
   studentUnAssigndata.forEach((el) => {
     const li = document.createElement("li");
@@ -75,33 +78,14 @@ function renderUnAssignStudentList(unStudent = []) {
       e.dataTransfer.setData("text/plain", li.id);
     });
 
-    olEle.appendChild(li);
+    ulEle.appendChild(li);
   });
 
-  unAssignStudentListEle.appendChild(olEle);
+  unAssignStudentListEle.appendChild(ulEle);
 }
 
 //form submit
 let studentFormData = set_get_localStorageData() || [];
-
-const initValues = { beginner: 0, intermediate: 0, advanced: 0 };
-
-const totalStudentLvlCountingData = studentFormData.reduce((acc, curr) => {
-  switch (curr.assignedCourseID) {
-    case "beginner":
-      acc.beginner++;
-      break;
-    case "intermediate":
-      acc.intermediate++;
-      break;
-    case "advanced":
-      acc.advanced++;
-      break;
-    default:
-      break;
-  }
-  return acc;
-}, initValues);
 
 renderUnAssignStudentList(studentFormData);
 
@@ -133,6 +117,15 @@ formContainerEle.addEventListener("submit", (e) => {
   renderUnAssignStudentList(studentFormData);
   set_get_localStorageData(studentFormData, "unAssignStudentsData");
 
+  courselvlsChartIns = initRenderBarChart(
+    studentCoursesChartEle,
+    "Student Courses Counting",
+    "Number of Courses",
+    Object.keys(getNoOfCourses()),
+    Object.values(getNoOfCourses()),
+    courselvlsChartIns
+  );
+
   inputValues.forEach((el) => {
     if (el.type === "checkbox") {
       el.checked = false;
@@ -143,18 +136,17 @@ formContainerEle.addEventListener("submit", (e) => {
 });
 
 // Course Levels drag and drop
-
 const courseLvlSecEle = document.getElementById("courseLvlSection");
 
 courseLevelsData.forEach((lvl) => {
   const courseLvlMainEle = document.createElement("div");
-  courseLvlMainEle.classList.add("col-md-4", "min-vh-50");
-  courseLvlMainEle.setAttribute("id", lvl.id);
+  courseLvlMainEle.classList.add("col-md-4");
 
-  courseLvlMainEle.innerHTML = `<div class="card p-3 mb-2">
-            <h4>${lvl.title}</h4>
-            `;
-
+  courseLvlMainEle.innerHTML = `
+  <div class="card p-3 mb-2 h-100" id="${lvl.id}" style="min-height: 150px;">
+    <h4>${lvl.title}</h4>
+  </div>
+`;
   courseLvlSecEle.appendChild(courseLvlMainEle);
 });
 
@@ -172,7 +164,7 @@ function createCourseLvlCard(cardData) {
               <h6 class="card-title">Name: ${cardData.studentName}</h6>
               <p class="card-text">ID: ${cardData.uid}</p>
               <p class="card-text">Courses: ${
-                cardData.courses.length ? el.courses.join(", ") : "None"
+                cardData.courses.length ? cardData.courses.join(", ") : "None"
               }</p>
             </div>`;
 
@@ -185,7 +177,6 @@ function createCourseLvlCard(cardData) {
 
 courseLevelsData.forEach((course) => {
   const sections = document.getElementById(course.id);
-
   sections.addEventListener("dragover", (e) => {
     e.preventDefault();
   });
@@ -206,7 +197,22 @@ courseLevelsData.forEach((course) => {
       }
     });
 
-    set_get_localStorageData(studentFormData);
+    const fetchedData = set_get_localStorageData(studentFormData);
+
+    renderUnAssignStudentList(fetchedData);
+
+    const totalCountingLvl = Object.values(
+      assignedCoursesCounting(fetchedData)
+    );
+
+    stuLvlChartIns = initRenderBarChart(
+      stuBarChartEle,
+      "Students per Course Level",
+      "Number of Students",
+      courseLvlsChartLabels,
+      totalCountingLvl,
+      stuLvlChartIns
+    );
   });
 });
 
@@ -224,43 +230,24 @@ function renderInitAssignedCourseCards() {
 
 renderInitAssignedCourseCards();
 
-// render student bar chart
-const stuBarChartEle = document.getElementById("studentLvlChart");
-const courseLvlsChartLabels = courseLevelsData.map((el) => el.title);
-const totalCountingLvl = Object.values(totalStudentLvlCountingData) || [];
+const totalCountingLvl = Object.values(
+  assignedCoursesCounting(set_get_localStorageData())
+);
 
-function renderBarChart(element, title, dataLabel, labels = [], data = []) {
-  new Chart(element, {
-    type: "bar",
-    data: {
-      labels: labels,
-      datasets: [
-        {
-          label: dataLabel,
-          data,
-          backgroundColor: ["#4e73df", "#1cc88a", "#36b9cc"],
-          borderColor: ["#2e59d9", "#17a673", "#2c9faf"],
-          borderWidth: 1,
-        },
-      ],
-    },
-    options: {
-      responsive: true,
-      plugins: {
-        legend: { display: true, position: "top" },
-        title: { display: true, text: title },
-      },
-      scales: {
-        y: { beginAtZero: true, stepSize: 1 },
-      },
-    },
-  });
-}
-
-renderBarChart(
+stuLvlChartIns = initRenderBarChart(
   stuBarChartEle,
-  "Students per Course Level",
+  "Student Count by Course Level",
   "Number of Students",
   courseLvlsChartLabels,
-  totalCountingLvl
+  totalCountingLvl,
+  stuLvlChartIns
+);
+
+courselvlsChartIns = initRenderBarChart(
+  studentCoursesChartEle,
+  "Course Enrollment Overview",
+  "Number of Enrollments",
+  Object.keys(getNoOfCourses()),
+  Object.values(getNoOfCourses()),
+  courselvlsChartIns
 );

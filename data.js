@@ -1,4 +1,4 @@
-export const checkboxesData = [
+export const courseTypesData = [
   {
     id: "JavaScript",
     value: "javaScript",
